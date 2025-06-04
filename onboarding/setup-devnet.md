@@ -5,78 +5,108 @@ description: Learn how to spin up a local development network for ICN.
 
 # Setting Up the ICN Development Network (Devnet)
 
-This guide provides instructions for setting up a local ICN development network. The devnet allows you to run a multi-node ICN environment on your own machine for development, testing, and exploration.
+This guide provides step-by-step instructions for setting up a local InterCooperative Network (ICN) development network. The devnet allows you to run a multi-node ICN environment on your own machine for development, testing, and exploration of ICN features.
 
-We primarily use the `icn-devnet` repository, which provides tools based on Docker and potentially Kubernetes (K8s) for ease of use.
+We primarily use the `icn-devnet` repository, which provides tools based on Docker and Docker Compose for ease of use and a consistent setup.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, ensure you have the following installed on your system:
 
-*   **Git**: For cloning the repositories.
-*   **Docker**: And Docker Compose (usually included with Docker Desktop).
-    *   Ensure the Docker daemon is running.
-*   **(Optional) Kubectl & a local K8s cluster** (e.g., Minikube, Kind, Docker Desktop Kubernetes): If you plan to use Kubernetes-based scripts from `icn-devnet`.
-*   **(Optional) Rust toolchain**: If you intend to build `icn-core` components from source for the devnet.
+*   **Git**: For cloning the necessary repositories. ([Installation Guide](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git))
+*   **Docker**: The Docker engine. ([Installation Guide](https://docs.docker.com/engine/install/))
+*   **Docker Compose**: Usually included with Docker Desktop, but can be installed separately. ([Installation Guide](https://docs.docker.com/compose/install/))
 
-## Option 1: Using Docker (Recommended)
+Ensure the Docker daemon is running before proceeding.
 
-The `icn-devnet` repository typically contains Docker Compose files to quickly spin up a complete environment.
+*   **(Optional) Kubectl & a local Kubernetes cluster**: (e.g., Minikube, Kind, K3s, or Docker Desktop Kubernetes). This is only if you plan to use or experiment with Kubernetes-based scripts from `icn-devnet`, if available.
+*   **(Optional) Rust toolchain**: (e.g., via `rustup`). Required if you intend to build `icn-core` components from source and integrate them with the devnet, rather than using pre-built Docker images.
 
-1.  **Clone `icn-devnet`**:
+## Option 1: Using Docker Compose (Recommended)
+
+The `icn-devnet` repository is the standard way to spin up a complete local environment. It typically contains `docker-compose.yml` files that define and configure the necessary ICN services (runtime nodes, networking, etc.).
+
+1.  **Clone the `icn-devnet` Repository**:
+    Open your terminal and run:
     ```bash
-    git clone https://github.com/InterCooperative-Network/icn-devnet.git # Replace with actual URL if different
+    git clone https://github.com/InterCooperative-Network/icn-devnet.git
     cd icn-devnet
     ```
+    *(Note: If the official URL differs, please use the correct one. This is a common convention.)*
 
-2.  **Explore Available Configurations**:
-    Check the `README.md` within `icn-devnet` for different devnet configurations (e.g., small, medium, with specific services enabled).
+2.  **Explore Available Configurations (Important!)**:
+    The `icn-devnet` repository might offer multiple configurations (e.g., a minimal setup, a multi-node setup, a setup with specific experimental features enabled). 
+    *   **Check the `README.md` in `icn-devnet`**: This is crucial. It will detail available configurations, what each includes, and any specific environment variables or `.env` files you might need to set up.
+    *   Look for subdirectories like `configs/` or different `docker-compose-*.yml` files.
+    *   For this guide, we'll assume a default or common configuration. Adjust commands if your chosen configuration requires a specific file (e.g., `docker-compose -f docker-compose-full.yml up`).
 
-3.  **Run Docker Compose**:
-    Navigate to the chosen configuration directory (if applicable) and run:
+3.  **Prepare Environment (if required)**:
+    Some configurations might require a `.env` file for specific settings (e.g., node names, ports if you need to change defaults, feature flags).
     ```bash
-    docker-compose up -d
+    # Example: if an .env.example is provided
+    # cp .env.example .env
+    # nano .env # Then edit as needed
     ```
-    This will pull the necessary Docker images (or build them if specified) and start all the ICN services in the background (`-d`).
 
-4.  **Verify Setup**:
-    Check the logs for all running containers:
+4.  **Pull Docker Images & Start the Devnet**:
+    Navigate to the root of the `icn-devnet` directory (or the specific configuration directory if applicable) and run:
     ```bash
-    docker-compose logs -f
+    docker-compose pull # Pulls the latest versions of images defined in the compose file
+    docker-compose up -d # Starts all services in detached mode (-d)
     ```
-    You should see nodes connecting, services starting, and potentially some initial network activity. Specific verification steps will be detailed in the `icn-devnet` repository's documentation.
+    This command will:
+    *   Download (pull) any pre-built Docker images for ICN components from a Docker registry.
+    *   If images are built locally, it might trigger builds the first time or if sources change.
+    *   Create and start all the containers, networks, and volumes defined in the `docker-compose.yml`.
 
-5.  **Accessing Services**:
-    The `icn-devnet` documentation will specify the ports and endpoints for accessing various services (e.g., node APIs, AgoraNet UI, Explorer).
+5.  **Verify the Setup**:
+    *   **Check Container Status**: See if all containers are running:
+        ```bash
+        docker-compose ps
+        ```
+        You should see services like ICN nodes, possibly a local blockchain/ledger, networking components, and any supporting services (e.g., log collectors, metrics). Their `State` should be `Up`.
+    *   **View Logs**: Monitor the aggregated logs from all services:
+        ```bash
+        docker-compose logs -f --tail=100 # Shows live logs from all containers, last 100 lines
+        ```
+        To view logs for a specific service (e.g., `icn_node_1` if named so in `docker-compose.yml`):
+        ```bash
+        docker-compose logs -f icn_node_1
+        ```
+        Look for messages indicating successful startup, peer discovery, and network formation. No critical error messages should be spamming the logs.
 
-6.  **Stopping the Devnet**:
-    To stop and remove the containers:
-    ```bash
-    docker-compose down
-    ```
-    To stop without removing containers (so you can restart them faster later):
-    ```bash
-    docker-compose stop
-    ```
+6.  **Accessing Services & Interacting with the Devnet**:
+    The `README.md` in `icn-devnet` or specific service documentation will provide details on how to interact with the running devnet:
+    *   **Node Endpoints**: e.g., RPC/API endpoints for runtime nodes (e.g., `localhost:8080`, `localhost:8081`).
+    *   **CLI Tools**: The `icn-cli` tools (`meshctl`, `runtimectl`) might be pre-configured or require pointing to these local endpoints.
+    *   **ICN Wallet**: The `icn-wallet` PWA might need to be configured to connect to your local devnet nodes.
+    *   **Explorer UI**: If an explorer service is part of the devnet, its local URL (e.g., `http://localhost:3000`).
+
+7.  **Stopping the Devnet**:
+    *   To stop all running services and remove the containers, networks, and volumes created by `docker-compose up` (useful for a clean restart):
+        ```bash
+        docker-compose down
+        ```
+    *   To stop the services without removing them (so you can restart them faster later with `docker-compose start`):
+        ```bash
+        docker-compose stop
+        ```
 
 ## Option 2: Manual Setup (Advanced)
 
-A fully manual setup involves building and running each component from `icn-core` and other repositories individually. This is a more complex process generally reserved for deep core development or specific debugging scenarios.
+A fully manual setup involves building and running each ICN component from `icn-core` and other repositories individually. This is a significantly more complex process generally reserved for deep core development, specific debugging scenarios, or when Docker is not an option.
 
-*This section is a placeholder. Detailed instructions for manual setup will be provided as the project matures and if there is a clear need beyond the Docker-based devnet. It would involve steps like:* 
+*This section remains a placeholder. Detailed instructions for manual setup will be provided if there is a clear community need beyond the Docker-based devnet. It would involve steps like cloning all relevant repos, building binaries (e.g., `cargo build --release`), manually configuring network peering, genesis states, and running each service with precise command-line flags.*
 
-*   Cloning `icn-core`, `icn-wallet`, `icn-agoranet`, etc.
-*   Building each component (e.g., `cargo build --release` for Rust crates).
-*   Configuring networking between nodes (libp2p bootstrap nodes, peer IDs).
-*   Setting up genesis states for the economy and governance modules.
-*   Running each service binary with appropriate command-line flags.
+For most development and testing purposes, the Docker Compose setup from `icn-devnet` is **strongly recommended** due to its simplicity, reproducibility, and encapsulation of complex configurations.
 
-For most development and testing purposes, the Docker-based setup from `icn-devnet` is strongly recommended due to its simplicity and reproducibility.
+## Troubleshooting Common Issues
 
-## Troubleshooting
+*   **Port Conflicts**: If `docker-compose up` fails with errors about ports already in use, another service on your machine is using a port ICN needs. You may need to stop the conflicting service or reconfigure the ICN devnet (if possible via `.env` files or `docker-compose.yml` overrides) to use different ports.
+*   **Docker Resources**: Ensure Docker has sufficient resources (CPU, Memory, Disk Space). Large devnets can be resource-intensive. Adjust Docker Desktop's resource allocation settings if needed.
+*   **Disk Space**: Docker images and volumes can consume significant disk space over time. Regularly prune unused images, containers, and volumes (e.g., `docker system prune -a`).
+*   **Firewall Issues**: Ensure your firewall isn't blocking Docker's networking or communication between containers.
+*   **Outdated Images**: Run `docker-compose pull` periodically to ensure you have the latest images, especially after new releases.
+*   **Check `icn-devnet` Issues**: The `icn-devnet` repository's GitHub Issues page is the best place to look for existing solutions or report new problems specific to the devnet setup.
 
-*   **Port Conflicts**: Ensure the ports required by ICN services are not already in use on your machine.
-*   **Docker Resources**: Allocate sufficient memory and CPU resources to Docker, especially if running a larger devnet configuration.
-*   Refer to the `icn-devnet` repository's issue tracker and documentation for specific troubleshooting tips.
-
-Once your devnet is running, you can proceed to interact with it using the ICN Wallet, CLI tools, or by deploying test applications. 
+Once your devnet is up and running, you can proceed to explore ICN features, develop applications, or contribute to its core components! 
